@@ -183,16 +183,19 @@ func GetClientFromURL(ctx context.Context, rawUrl string, transport *http.Transp
 			}
 			rpcClient, err = rpc.DialOptions(ctx, rawUrl, rpc.WithHTTPClient(client))
 		} else {
-			rpcClient, err = rpc.DialHTTP(rawUrl)
+			// Use context-aware dial for HTTP to avoid ignoring cancellations/timeouts
+			rpcClient, err = rpc.DialOptions(ctx, rawUrl)
 		}
 	case "ws", "wss":
 		rpcClient, err = rpc.DialWebsocket(ctx, rawUrl, "")
 	default:
-		log.Error("no known transport", "scheme", u.Scheme, "url", rawUrl)
+		// Avoid logging raw URL which may include credentials
+		log.Error("no known transport", "scheme", u.Scheme, "url", u.Redacted())
 		return nil, ErrorInternalConnectionError
 	}
 	if err != nil {
-		log.Error("error connecting to client", "error", err, "url", rawUrl)
+		// Avoid logging raw URL which may include credentials
+		log.Error("error connecting to client", "error", err, "url", u.Redacted())
 		return nil, ErrorInternalConnectionError
 	}
 	return rpcClient, nil
